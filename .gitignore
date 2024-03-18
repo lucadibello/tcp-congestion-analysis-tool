@@ -3,3 +3,4 @@ client
 
 # Build files
 client.*
+!client.c
