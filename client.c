@@ -220,9 +220,6 @@ void parseArgs(int argc, char *argv[], int *port, int *size, CongestionControl *
         found = false; // Reuse same variable
         for (int i = 0; i < count; i++)
         {
-          // Print if the algorithm is supported
-          bool supported = strcmp(algorithms[i], optarg) == 0;
-          printf("Algorithm %s is %s (vs %s)\n", optarg, supported ? "supported" : "not supported", algorithms[i]);
           if (strcmp(algorithms[i], optarg) == 0)
           {
             // We set also the congestion control algorithm variable
@@ -233,8 +230,8 @@ void parseArgs(int argc, char *argv[], int *port, int *size, CongestionControl *
         if (!found)
         {
           // Notify user that the congestion control algorithm is not supported by its system
-          printf("Selected congestion control algorithm is not available in your system\n");
-          printf("Available algorithms in your system:\n");
+          printf("Selected congestion control algorithm is not available in your system. Have you Enabled TCP congestion algortihms in your system:\n");
+          printf("List of enabled congestion control algorithms:\n");
           for (int i = 0; i < count; i++)
           {
             printf("\t- %s\n", algorithms[i]);
