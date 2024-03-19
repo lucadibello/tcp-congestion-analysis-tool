@@ -230,7 +230,7 @@ void parseArgs(int argc, char *argv[], int *port, int *size, CongestionControl *
         if (!found)
         {
           // Notify user that the congestion control algorithm is not supported by its system
-          printf("Selected congestion control algorithm is not available in your system. Have you Enabled TCP congestion algortihms in your system:\n");
+          printf("Selected congestion control algorithm is not available in your system. Have you enabled it?\n");
           printf("List of enabled congestion control algorithms:\n");
           for (int i = 0; i < count; i++)
           {
