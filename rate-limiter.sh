@@ -14,15 +14,16 @@ function cleanup {
 function setup {
 	  # Clear any existing network condition settings
     sudo tc qdisc del dev "$INTERFACE" root
+    sudo tc qdisc add dev "$INTERFACE" root netem rate "$RATE"
 
     # Add root qdisc
 		sudo tc qdisc change dev "$INTERFACE" root netem delay 100ms 50ms 50 distribution normal
     sudo tc qdisc change dev "$INTERFACE" root netem limit 10
 
 		# Add loss
-		sudo tc qdisc change dev $INTERFACE root netem loss 5%
-		sudo tc qdisc change dev $INTERFACE root netem duplicate 2%
-		sudo tc qdisc change dev $INTERFACE root netem corrupt 1%
+		sudo tc qdisc change dev "$INTERFACE" root netem loss 5%
+		sudo tc qdisc change dev "$INTERFACE" root netem duplicate 2%
+		sudo tc qdisc change dev "$INTERFACE" root netem corrupt 1%
 }
 
 function print_help {
