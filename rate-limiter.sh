@@ -23,10 +23,6 @@ function setup {
 		sudo tc qdisc change dev "$INTERFACE" root netem duplicate 1%
 		# Tell system o randomly corrupt 0.1% of the packets on the specified network interface.
 		sudo tc qdisc change dev "$INTERFACE" root netem corrupt 0.1%
-		# Tell system to randomly reorder 25% of the packets, with a correlation of 50%, on the specified network interface.
-		sudo tc qdisc change dev "$INTERFACE" root netem reorder 25% 50%
-		# Tell system to introduce gaps between packets, causing a burst of 10 packets to be sent, followed by a gap.
-		sudo tc qdisc change dev "$INTERFACE" root netem gap 10
 }
 
 function print_help {
