@@ -11,25 +11,18 @@ function cleanup {
     sudo tc qdisc del dev "$INTERFACE" root
 }
 
-# Settings
-DELAY="200ms"       # Latency
-JITTER="50ms"       # Latency variation delta
-LOSS="5%"           # Packet loss likelihood
-DUPLICATE="2%"      # Likelihood of packet duplication
-CORRUPT="1%"        # Packet corruption likelihood
-LIMIT="1000"        # Packet queue limit
-
 function setup {
 	  # Clear any existing network condition settings
-    sudo tc qdisc del dev "$INTERFACE" root 2>/dev/null
+    sudo tc qdisc del dev "$INTERFACE" root
 
-    # Add new network condition settings
-    sudo tc qdisc add dev "$INTERFACE" root netem rate "$RATE" \
-        delay "$DELAY" "$DELAY_VARIATION" distribution normal \
-        loss "$LOSS_RATE" \
-        duplicate "$DUPLICATION_RATE" \
-        corrupt "$CORRUPTION_RATE" \
-        limit "$QUEUE_LIMIT"
+    # Add root qdisc
+		sudo tc qdisc change dev "$INTERFACE" root netem delay 100ms 50ms 50 distribution normal
+    sudo tc qdisc change dev "$INTERFACE" root netem limit 10
+
+		# Add loss
+		sudo tc qdisc change dev $INTERFACE root netem loss 5%
+		sudo tc qdisc change dev $INTERFACE root netem duplicate 2%
+		sudo tc qdisc change dev $INTERFACE root netem corrupt 1%
 }
 
 function print_help {
