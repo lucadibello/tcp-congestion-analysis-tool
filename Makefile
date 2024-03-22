@@ -1,11 +1,16 @@
 CFLAGS ?=-Wall -Werror -g
 
 .PHONY: all
-all: client
+all: server client
 
 .PHONY: clean
 clean:
-	rm client client.*
+	rm server client
+
+.PHONY: server-tests
+server-tests: all
+	@./tests/server_cli.py
+	@./tests/server.py
 
 .PHONY: client-tests
 client-tests: all
@@ -13,4 +18,4 @@ client-tests: all
 	@./tests/client.py
 
 .PHONY: check
-check: client-tests
+check: server-tests client-tests
