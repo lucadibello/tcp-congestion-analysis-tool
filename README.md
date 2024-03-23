@@ -12,22 +12,28 @@ To compile the tool, run the following command:
 make
 ```
 
-This will generate the `client` executable file, which can be used via the command line.
+This will generate a `client` and `server` executable files, which can be used via the command line.
 
 
-> Unfortunately this code cannot be compiled under MacOS due to the impossibility of changing the TCP Congestion Control algorithm in Socket API. For this reason, a working DevContainer is provided in the repository, which can be used to run the code in a Linux environment.
+> Unfortunately the client cannot be compiled under MacOS due to the impossibility of changing the TCP Congestion Control algorithm in Socket API. For this reason, a working DevContainer is provided in the repository, which can be used to run the code in a Linux environment.
 
 ## Usage
 
-To display the usage of the tool, run the following command:
+To display the usage of each of the executables, run the commands with a `-h` or `--help` flag:
 
 ```bash
 ./client -h 
 ```
+or
+```bash
+./server -h 
+```
 
-The output will be:
+
+For the client, the output will be:
 
 ```bash
+luca@debian-gnu-linux-11:~/tcp-congestion-analysis-tool$ ./client -h
 Usage: ./client [options] <server>
 
 Options:
@@ -38,9 +44,21 @@ Options:
   -h, --help                 Display this help and exit
 ```
 
+On the other hand, for the server the output will be:
+
+```bash
+luca@debian-gnu-linux-11:~/tcp-congestion-analysis-tool$ ./server -h
+Usage: server [options]
+
+-p <port>, --port <port>
+                  The port to listen on (default: 5000)
+-h, --help
+                  Display this help and exit
+```
+
 ### Examples
 
-This command will send 1000 pseudo-random bytes to the server at `10.20.1.20:5000` using the `reno` TCP Congestion Control algorithm:
+This command will send 1000 pseudo-random bytes to the server hosted at `10.20.1.20:5000` using the `reno` TCP Congestion Control algorithm:
 
 ```bash
 ./client -p 5000 -n 1000 -c reno 10.20.1.20
@@ -50,4 +68,10 @@ This command will send 1000 pseudo-random bytes to the server with DNS name `ser
 
 ```bash
 ./client -n 1000 -c cubic server.local
+```
+
+This command will start a server on port 5555:
+
+```bash
+./server -p 5555
 ```
