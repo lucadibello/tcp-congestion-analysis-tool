@@ -1,0 +1,9 @@
+# Ignore all files by default
+*.*
+
+# Force to version this file
+!.gitignore
+
+# Include all LaTeX files and the bibliography
+!*.tex
+!*.bib

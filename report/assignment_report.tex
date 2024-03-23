@@ -1,0 +1,240 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage[top=3cm, bottom=3cm, left = 2cm, right = 2cm]{geometry} 
+\geometry{a4paper} 
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{graphicx} 
+\usepackage{amsmath,amssymb}  
+\usepackage{bm}  
+\usepackage[pdftex,bookmarks,colorlinks,breaklinks]{hyperref}  
+\hypersetup{linkcolor=black,citecolor=black,filecolor=black,urlcolor=black} % black links, for printed output
+\usepackage{memhfixc} 
+\usepackage{pdfsync}  
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{changepage}
+\usepackage{amsmath}
+\pagestyle{fancy}
+\setlength{\headheight}{13.6pt}
+
+\title{Exploring Congestion Control\\[1ex] \large Advanced Networking - Università della Svizzera Italiana (USI)}
+\author{Luca Di Bello}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\pagebreak
+
+\section{Introduction and environment setup}
+\label{sec:introduction}
+
+To analyze the differences between the congestion control algorithms proposed in the assignment (Reno, Cubic, and Vegas) I created a simple virtual dumbbell topology using an OS-level Hypervisor (\href{https://www.parallels.com/}{Parallels}) and two Debian-based virtual machines connected via a virtual network created by the hypervisor. In addition, to simulate the network congestion, I used the provided script \texttt{rate-limiter.sh} to limit the bandwidth of the virtual network interface of the two virtual machines to a fixed transfer rate of 1 Mbps and 5 Mbps. \footnote{I decided to use two different transfer rates to simulate a real network scenario where the bandwidth is not the same in both directions.}
+
+Figure \ref{fig:topology} shows the network topology used for the experiments with the two virtual machines connected to the hypervisor virtual network gateway.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\textwidth]{./assets/images/network-architecture.png}
+	\caption{Network topology}
+	\label{fig:topology}
+\end{figure}
+
+\textit{Note:} The hypervisor virtual network gateway is connected to the physical network interface of the host machine. In the diagram above, this feature is not shown as it is not relevant for the purpose of the experiments.
+
+\section{Traffic control setup}
+
+To simulate the network congestion, I used the provided script \texttt{rate-limiter.sh} to limit the bandwidth of the virtual network interface of the two virtual machines to 1 Mbps (left VM) and 5 Mbps (right VM). In addition, the script also adds a delay of 100 ms to the packets exchanged between the two virtual machines. The script leverages the \texttt{tc} command to configure the traffic control settings of the network interface. This is the command used to limit the bandwidth of the network interface, to add a delay to the packets, and to limit the number of packets in the queue:
+
+\begin{lstlisting}[language=bash]
+	sudo tc qdisc add dev "$INTERFACE" root netem rate "$RATE"
+	sudo tc qdisc change dev "$INTERFACE" root netem limit 10
+	sudo tc qdisc change dev "$INTERFACE" root netem delay 100ms \
+		50ms 50 distribution normal
+\end{lstlisting}
+
+Unfortunately, after some testing, I was not able to create timeouts using the provided script. Therefore, I decided to introduce packet loss, duplications, and packet corruption via \texttt{tc} to simulate problems in the network and test how the congestion control algorithms behave in these scenarios. To do so, I added the following commands to \texttt{setup} routine of the script:
+
+\begin{lstlisting}[language=bash]
+	sudo tc qdisc change dev "$INTERFACE" root netem loss 5%
+	sudo tc qdisc change dev "$INTERFACE" root netem duplicate 2%
+	sudo tc qdisc change dev "$INTERFACE" root netem corrupt 1%
+\end{lstlisting}
+
+This approach resulted in a more realistic simulation of network congestion, as it allowed me to test how the window size changes in response to these events.
+
+\pagebreak
+
+\section{Test Plan}
+
+To analyze the behavior of the congestion control algorithms, I created a simple test plan that consists of the following steps:
+
+\begin{enumerate}
+	\item Compile the provided source code for the TCP server and client on both virtual machines using the provided \texttt{Makefile}.
+	\item Start the \texttt{rate-limiter.sh} script on both virtual machines to limit the bandwidth of the network interface. This script will be executed only once on each virtual machine.
+
+	      On the left VM, this script will limit the bandwidth to 1 Mbps:
+	      % Code to start the rate limiter
+	      \begin{adjustwidth}{-10cm}{}
+		      \begin{lstlisting}[language=bash]
+						$ sudo ./rate-limiter.sh -i enp0s5 -r 1mbps 
+					\end{lstlisting}
+	      \end{adjustwidth}
+
+	      On the right VM, this script will limit the bandwidth to 5 Mbps:
+
+	      % Code to start the rate limiter
+	      \begin{adjustwidth}{-10cm}{}
+		      \begin{lstlisting}[language=bash]
+						$ sudo ./rate-limiter.sh -i enp0s5 -r 1mbps 
+					\end{lstlisting}
+	      \end{adjustwidth}
+	\item Start a TCP server on the virtual machine on the left side of the network topology (\texttt{10.211.55.14}) to listen on port 1234. The following command will be executed only once:
+	      % Code to start the server
+	      \begin{adjustwidth}{-10cm}{}
+		      \begin{lstlisting}[language=bash]
+						$ ./server.py 1234
+					\end{lstlisting}
+	      \end{adjustwidth}
+
+	\item Start Wireshark on the right side of the virtual network (\texttt{10.211.55.8}) in order to capture the packets exchanged between the client and the server. In order to be able to sniff the packets, the user must execute the program with superuser privileges:
+	      % Code to start Wireshark
+	      \begin{adjustwidth}{-10cm}{}
+		      \begin{lstlisting}[language=bash]
+						$ sudo wireshark -i enp0s5
+					\end{lstlisting}
+	      \end{adjustwidth}
+
+	\item Start a TCP client on the virtual machine on the right side of the network (\texttt{10.211.55.8}), in order to connect to the server on port 1234, and send 10000000 random bytes (10 MB) of data. The following command will be executed 3 times, each with a different congestion control algorithm:
+	      % Code to start the server
+	      \begin{adjustwidth}{-10cm}{}
+		      \begin{lstlisting}[language=bash]
+						$ ./client -p 1234 -n 10000000 -c <reno|cubic|vegas> 10.211.55.14
+					\end{lstlisting}
+	      \end{adjustwidth}
+\end{enumerate}
+
+\pagebreak
+
+\section{Congestion Control Algorithms}
+
+As mentioned in the introduction (refer to section \ref{sec:introduction}), this report will analyze the behavior of three different congestion control algorithms: Reno, Cubic, and Vegas. The tests have been conducted using the source code provided in the submission, using the same configuration for all the algorithms to ensure a fair comparison.
+
+\subsection{Reno Congestion Control Algorithm}
+\label{sec:reno}
+
+This algorithm presents a simple and efficient way to control congestion in TCP networks. It is based on the \textit{Additive Increase Multiplicative Decrease} (AIMD) principle \footnote{AIMD is a feedback control algorithm that controls the rate of data transmission in a network. It increases the transmission rate linearly until it detects a congestion (NACKs or timeout) and then decreases the rate by an exponential factor.\cite{wiki:tcp_congestion_control}}.
+
+By analyzing the Wireshark capture of the packets exchanged between the client and the server, this behavior can be observed. Figure \ref{fig:reno} shows the congestion window size in function of the time for the Reno congestion control algorithm (generated by Wireshark) during a file transfer of 1 MB.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\textwidth]{./assets/images/reno-window.png}
+	\caption{Reno Congestion Control Algorithm - Congestion Window Size over Time during a file transfer of 1 MB.}
+	\label{fig:reno}
+\end{figure}
+
+We can see that the Reno congestion control algorithm behaves as expected. The algorithm starts by increasing the congestion window size linearly until it detects a duplicate ACK (packet loss). When a packet loss is detected, the algorithm decreases the congestion window size by half and starts increasing it linearly again. On the other hand, if there is a timeout, the algorithm decreases the congestion window size to 1 and starts increasing it linearly again.
+
+Is it possible to estimate the window size of the congestion control algorithm using the following information:
+
+\begin{itemize}
+	\item Slow start: the congestion window increases by 1 MSS for each ACK received, doubling the window size each RTT until reaching the slow start threshold ($ssthresh$): $cwnd = cwnd + 1 \ MSS$.
+	\item Congestion avoidance: After reaching the slow start threshold, the congestion window increases by a factor of $1/cwnd$ for each RTT: $cwnd = cwnd + 1/cwnd$.
+	\item Fast recovery: When a packet loss is detected, the congestion window is halved, setting the slow start threshold to half the current congestion window size: $cwnd = cwnd / 2$, $ssthresh = ssthresh / 2$.
+	\item Timeout: When a timeout is detected, the congestion window is set to 1 MSS and the slow start threshold is set to half the current congestion window size: $cwnd = 1$, $ssthresh = cwnd / 2$.
+\end{itemize}
+
+For example, in Figure \ref{fig:reno}, we can see a segment of the overall communication between client and server, where multiple packet loss and timeouts are detected in a time frame of 1.5 seconds. The congestion window size starts at 1 MSS, then increases exponentially until it reaches its peak at around 50k bytes (about 32 MSS). After a packet loss is detected, the congestion window size is halved and continues to increase linearly until it reaches the slow start threshold. Unfortunately, during the increase of the congestion window size, a timeout is detected, and the congestion window size is set to 1 MSS to then start increasing linearly again.
+
+\pagebreak
+
+\subsection{Cubic Congestion Control Algorithm}
+
+The Cubic congestion control algorithm is present in the Linux kernel since version 2.6.13 (around 2006). It is optimized for \textit{long fat networks} (LFNs) as it can achieve reliable high bandwidth connections even in high latency situations. \cite{wiki:cubic}
+
+This algorithm does not use the AIMD principle as the Reno algorithm does (refer to section \ref{sec:reno}). Instead, it uses a cubic function to calculate the congestion window size based on the time elapsed since the last congestion event with the inflection point of the cubic function being the last congestion event, allowing a slow start of the congestion window size to avoid possible additional congestion events. Then, due to the cubic function, the congestion window size increases exponentially until it reaches the last congestion window size before the congestion event.
+
+In Figure \ref{fig:cubic}, is possible to observe the behavior of the Cubic congestion control algorithm during a file transfer of 1 MB with some packet loss, duplication, and corruption events.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\textwidth]{./assets/images/cubic-window.png}
+	\caption{Cubic Congestion Control Algorithm - Congestion Window Size over Time during a file transfer of 10 MB.}
+	\label{fig:cubic}
+\end{figure}
+
+As it is possible to see from the figure above, the Cubic congestion control algorithm has a different behavior compared to the Reno algorithm. In this case, the congestion window size could be estimated using the following formula: \cite{wiki:cubic}
+
+\begin{equation*}
+	\begin{aligned}
+		cwnd(t)       & = C(t - K)^3 + W_{max}                                                                             \\
+		\text{Where:} &                                                                                                    \\
+		              & \begin{aligned}
+			                cwnd(t) & \text{ is the congestion window size at time } t                                         \\
+			                C       & \text{ is a constant that determines the rate of increase of the congestion window size} \\
+			                K       & = \sqrt[3]{\frac{W_{max}(1-\beta)}{C}}                                                   \\
+			                \beta   & \text{ is the congestion window reduction factor}                                        \\
+			                W_{max} & \text{ is the maximum congestion window size before the last congestion event}
+		                \end{aligned}
+	\end{aligned}
+\end{equation*}
+
+\pagebreak
+
+\subsection{Vegas Congestion Control Algorithm}
+
+To conclude, the Vegas congestion control algorithm is a TCP congestion control algorithm that uses the \textit{Additive Increase Multiplicative Decrease} (AIMD) principle to control the congestion in the network. The main difference between Vegas and Reno is that Vegas uses the variation in RTT to detect congestion in the network, while Reno uses packet loss. \cite{wiki:tcp_congestion_control}
+
+By measuring the actual throughput and the expected throughput, Vegas can detect congestion in the network and adjust the window size to avoid packet loss.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\textwidth]{./assets/images/vegas-window.png}
+	\caption{Vegas Congestion Control Algorithm - Congestion Window Size over Time during a file transfer of 10 MB.}
+	\label{fig:vegas}
+\end{figure}
+
+In Figure \ref{fig:vegas}, we can see the behavior of the Vegas congestion control algorithm during a file transfer of 10 MB. The congestion window size increases linearly until a congestion event is detected due to the difference in RTT between the expected and the actual throughput.
+
+The goal of the Vegas congestion control algorithm is to keep the congestion window size as close as possible to the expected throughput in order to prevent future congestion events.
+
+To estimate the congestion window size of the Vegas congestion control algorithm, we can use the following formula: \cite{uni:vegas}
+
+\begin{equation*}
+	\begin{aligned}
+		W             & = \begin{cases}
+			                  W + 1, & \text{if } \text{diff} < \alpha               \\
+			                  W,     & \text{if } \alpha \leq \text{diff} \leq \beta \\
+			                  W - 1, & \text{if } \text{diff} > \beta
+		                  \end{cases} \\
+		\text{Where:} &                                                          \\
+		diff          & = ( \frac{W}{baseRTT} - \frac{W}{RTT} )                  \\
+		baseRTT       & = W \frac{RTT - baseRTT}{RTT}                            \\
+		W             & \text{ is the congestion window size}                    \\
+		RTT           & \text{ is the actual Round Trip Time}                    \\
+		baseRTT       & \text{ is the expected Round Trip Time}                  \\
+		\alpha        & \text{ Vegas throughput thresholds, measured in
+			packets}
+	\end{aligned}
+\end{equation*}
+
+This behavior can be observed in Figure \ref{fig:vegas}, where the congestion window size is increased due to RTT variations until a congestion event is detected. Then, as soon as a timeout is detected, the congestion window size is reset to 1 MSS and starts increasing linearly again.
+
+Is it also possible to see that the congestion window size fluctuates between 1-3 MSS due to the RTT variations in the network. On the other hand, in certain timeframes the size of the window is static due to stable RTT values.
+
+\pagebreak
+
+\section{Conclusions}
+
+There is a clear difference between the Vegas congestion control algorithm and the Reno and Cubic algorithms. As cited in the previous sections, while Reno and Cubic use packet loss to detect congestion in the network, Vegas uses the variation in RTT to adjust the congestion window size. For this reason, is possible to see that the Vegas congestion window size fluctuates more than the other two algorithms. This is clear when comparing the diagrams of the congestion window size over time for the three algorithms.
+
+On the other hand, the Reno and Cubic algorithms have a similar behavior, as they both use the AIMD principle to control the congestion in the network. The main difference between the two algorithms is that Cubic uses a cubic function to calculate the congestion window size, while Reno uses a linear function. This slight difference in the behavior of the two algorithms can be observed by comparing the two plots, but is less evident than the difference between Vegas and the other two algorithms.
+
+\pagebreak
+\nocite{*} % Force to show all references in references.bib file
+
+\bibliographystyle{abbrv}
+\bibliography{references}  % need to put bibtex references in references.bib 
+\end{document}
