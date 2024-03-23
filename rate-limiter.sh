@@ -13,7 +13,7 @@ function cleanup {
 
 function setup {
 	  # Clear any existing network condition settings
-    sudo tc qdisc del dev "$INTERFACE" root
+    sudo tc qdisc del dev "$INTERFACE" root 2>/dev/null || true
     sudo tc qdisc add dev "$INTERFACE" root netem rate "$RATE"
 
     # Add root qdisc
