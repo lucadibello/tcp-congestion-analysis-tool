@@ -4,6 +4,10 @@ This small tool can be used to send a certain amount of random bytes to a server
 
 The tool is written in C and uses exclusively standard C libraries, so it can be compiled and run on any Linux machine.
 
+## Research report
+
+Following the creation of this small tool, I have performed some exploration into the functioning of TCP Congestion Protocols such as (New) Reno, Cubic, and Vegas. If you're curious, you can access the paper's PDF [here](./report/assignment_report.pdf).
+
 ## Getting Started
 
 To compile the tool, run the following command:
