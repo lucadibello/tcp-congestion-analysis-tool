@@ -387,6 +387,9 @@ int main(int argc, char *argv[])
   // Close the connection
   close(sockfd);
 
+  // Freeing allocated memory
+  free(bytes);
+
   // Set socket options for congestion control
   return EXIT_SUCCESS;
 }
