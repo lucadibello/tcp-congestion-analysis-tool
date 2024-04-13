@@ -21,23 +21,13 @@ This will generate a `client` and `server` executable files, which can be used v
 
 > Unfortunately the client cannot be compiled under MacOS due to the impossibility of changing the TCP Congestion Control algorithm in Socket API. For this reason, a working DevContainer is provided in the repository, which can be used to run the code in a Linux environment.
 
-## Usage
+## Tool Usage
 
 To display the usage of each of the executables, run the commands with a `-h` or `--help` flag:
 
-```bash
-./client -h 
-```
-or
-```bash
-./server -h 
-```
-
-
-For the client, the output will be:
+**Client executable**
 
 ```bash
-luca@debian-gnu-linux-11:~/tcp-congestion-analysis-tool$ ./client -h
 Usage: ./client [options] <server>
 
 Options:
@@ -48,10 +38,9 @@ Options:
   -h, --help                 Display this help and exit
 ```
 
-On the other hand, for the server the output will be:
+**Server executable**
 
 ```bash
-luca@debian-gnu-linux-11:~/tcp-congestion-analysis-tool$ ./server -h
 Usage: server [options]
 
 -p <port>, --port <port>
